@@ -1,27 +1,28 @@
 var express = require("express");
 var router = express.Router();
-let bcrypt = require('bcrypt')
+let bcrypt = require("bcrypt");
 let { userPostValidation, validateResult } =
-  require('../utils/validationHandler')
+  require("../utils/validationHandler");
 
 let userController = require("../controllers/users");
 
-
+// Get all
 router.get("/", async function (req, res, next) {
-  let users = await userModel
-    .find({ isDeleted: false }).
-    populate({ path: 'role', select: 'name' })
-  res.send(users);
+  try {
+    let users = await userController.GetAll();
+    res.send(users);
+  } catch (err) {
+    res.status(400).send({ message: err.message });
+  }
 });
 
+// Get by ID
 router.get("/:id", async function (req, res, next) {
   try {
-    let result = await userModel
-      .find({ _id: req.params.id, isDeleted: false })
-    if (result.length > 0) {
+    let result = await userController.GetByID(req.params.id);
+    if (result) {
       res.send(result);
-    }
-    else {
+    } else {
       res.status(404).send({ message: "id not found" });
     }
   } catch (error) {
@@ -29,54 +30,77 @@ router.get("/:id", async function (req, res, next) {
   }
 });
 
+// Create
 router.post("/", userPostValidation, validateResult,
   async function (req, res, next) {
     try {
-      let newItem = await userController.CreateAnUser(
+      let saved = await userController.Create(
         req.body.username,
         req.body.password,
-        req.body.email, 
+        req.body.email,
         req.body.role,
-        "", "",
-        false
-      )
-      // populate cho đẹp
-      let saved = await userController.FindByID(newItem._id);
+        req.body.fullName || "",
+        req.body.avatarUrl || ""
+      );
       res.send(saved);
     } catch (err) {
       res.status(400).send({ message: err.message });
     }
   });
 
+// Update
 router.put("/:id", async function (req, res, next) {
   try {
-    let id = req.params.id;
-    let updatedItem = await userModel.findOne({ _id: id, isDeleted: false })
-    if (!updatedItem) return res.status(404).send({ message: "id not found" });
-    let keys = Object.keys(req.body);
-    for (const key of keys) {
-      updatedItem[key] = req.body[key];
-    }
-    await updatedItem.save();
-    let populated = await userModel
-      .findById(updatedItem._id)
-    res.send(populated);
+    let result = await userController.Update(req.params.id, req.body);
+    if (!result) return res.status(404).send({ message: "id not found" });
+    res.send(result);
   } catch (err) {
     res.status(400).send({ message: err.message });
   }
 });
+
+// Soft delete
 router.delete("/:id", async function (req, res, next) {
   try {
-    let id = req.params.id;
-    let updatedItem = await userModel.findByIdAndUpdate(
-      id,
-      { isDeleted: true },
-      { new: true }
-    );
-    if (!updatedItem) {
+    let result = await userController.Delete(req.params.id);
+    if (!result) {
       return res.status(404).send({ message: "id not found" });
     }
-    res.send(updatedItem);
+    res.send(result);
+  } catch (err) {
+    res.status(400).send({ message: err.message });
+  }
+});
+
+// Enable user
+router.post("/enable", async function (req, res, next) {
+  try {
+    let { email, username } = req.body;
+    if (!email || !username) {
+      return res.status(400).send({ message: "email and username are required" });
+    }
+    let result = await userController.Enable(email, username);
+    if (!result) {
+      return res.status(404).send({ message: "user not found" });
+    }
+    res.send(result);
+  } catch (err) {
+    res.status(400).send({ message: err.message });
+  }
+});
+
+// Disable user
+router.post("/disable", async function (req, res, next) {
+  try {
+    let { email, username } = req.body;
+    if (!email || !username) {
+      return res.status(400).send({ message: "email and username are required" });
+    }
+    let result = await userController.Disable(email, username);
+    if (!result) {
+      return res.status(404).send({ message: "user not found" });
+    }
+    res.send(result);
   } catch (err) {
     res.status(400).send({ message: err.message });
   }

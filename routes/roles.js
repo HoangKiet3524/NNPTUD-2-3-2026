@@ -1,22 +1,25 @@
 var express = require("express");
 var router = express.Router();
 
-let roleModel = require("../schemas/roles");
+let roleController = require("../controllers/roles");
 
-
+// Get all
 router.get("/", async function (req, res, next) {
-    let roles = await roleModel.find({ isDeleted: false });
-    res.send(roles);
+    try {
+        let roles = await roleController.GetAll();
+        res.send(roles);
+    } catch (err) {
+        res.status(400).send({ message: err.message });
+    }
 });
 
-
+// Get by ID
 router.get("/:id", async function (req, res, next) {
     try {
-        let result = await roleModel.find({ _id: req.params.id, isDeleted: false });
-        if (result.length > 0) {
+        let result = await roleController.GetByID(req.params.id);
+        if (result) {
             res.send(result);
-        }
-        else {
+        } else {
             res.status(404).send({ message: "id not found" });
         }
     } catch (error) {
@@ -24,24 +27,23 @@ router.get("/:id", async function (req, res, next) {
     }
 });
 
-
+// Create
 router.post("/", async function (req, res, next) {
     try {
-        let newItem = new roleModel({
-            name: req.body.name,
-            description: req.body.description
-        });
-        await newItem.save();
+        let newItem = await roleController.Create(
+            req.body.name,
+            req.body.description
+        );
         res.send(newItem);
     } catch (err) {
         res.status(400).send({ message: err.message });
     }
 });
 
+// Update
 router.put("/:id", async function (req, res, next) {
     try {
-        let id = req.params.id;
-        let updatedItem = await roleModel.findByIdAndUpdate(id, req.body, { new: true });
+        let updatedItem = await roleController.Update(req.params.id, req.body);
         if (!updatedItem) {
             return res.status(404).send({ message: "id not found" });
         }
@@ -51,18 +53,14 @@ router.put("/:id", async function (req, res, next) {
     }
 });
 
+// Soft delete
 router.delete("/:id", async function (req, res, next) {
     try {
-        let id = req.params.id;
-        let updatedItem = await roleModel.findByIdAndUpdate(
-            id,
-            { isDeleted: true },
-            { new: true }
-        );
-        if (!updatedItem) {
+        let result = await roleController.Delete(req.params.id);
+        if (!result) {
             return res.status(404).send({ message: "id not found" });
         }
-        res.send(updatedItem);
+        res.send(result);
     } catch (err) {
         res.status(400).send({ message: err.message });
     }
